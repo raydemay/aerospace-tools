@@ -41,9 +41,30 @@ elif selection == 5:
     c = -2 * (gamma - 1)
     M1 = math.sqrt((-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a))
 elif selection == 6:
-    # TODO: Make this math work
-    print("This requires an iterative process and has not yet been programmed")
-    sys.exit()
+    # P02/P01 is known
+    # Newton-Raphson Method is used to make this calculation
+    p02_p01 = knownValue
+    M1 = 0
+    M_guess = 2
+    while abs(M_guess - M1) > 0.0000001:
+        M1 = M_guess
+        rho2_rho1 = (gamma + 1) * M1**2 / (2 + (gamma - 1) * M1**2)
+        P1_P2 = (gamma + 1) / (2 * gamma * M1**2 - gamma + 1)
+        f = (rho2_rho1 ** (gamma / (gamma - 1))) * (
+            P1_P2 ** (1 / (gamma - 1))
+        ) - p02_p01
+        dP1P2 = -4 * gamma * M1 * (gamma + 1) / (2 * gamma * M1**2 - gamma + 1) ** 2
+        drho2rho1 = 4 * (gamma + 1) * M1 / ((gamma - 1) * M1**2 + 2) ** 2
+        fprime = (gamma / (gamma - 1)) * (
+            rho2_rho1 ** (1 / (gamma - 1))
+        ) * drho2rho1 * (P1_P2 ** (1 / (gamma - 1))) + (
+            rho2_rho1 ** (gamma / (gamma - 1))
+        ) * (
+            1 / (gamma - 1)
+        ) * (
+            P1_P2 ** ((2 - gamma) / (gamma - 1))
+        ) * dP1P2
+        M_guess = M1 - (f / fprime)
 elif selection == 7:
     # TODO: Make this math work
     print("This requires an iterative process and has not yet been programmed")
@@ -51,7 +72,7 @@ elif selection == 7:
 else:
     print("error")
     sys.exit()
-5
+
 # Calculate ratios from given/calculated M1
 cp = gamma * 287 / (gamma - 1)
 T0_T = 1 + 0.5 * (gamma - 1) * M1**2
@@ -67,7 +88,8 @@ if selection != 4:
 if selection != 5:
     T2_T1 = p2_p1 / rho2_rho1
 entropyChange = cp * math.log(T2_T1) - 287 * math.log(p2_p1)
-p02_p01 = math.exp(-entropyChange / 287)
+if selection != 6:
+    p02_p01 = math.exp(-entropyChange / 287)
 p02_p1 = p02_p01 * P0_P
 print("M1:", M1)
 print("M2:", M2)
