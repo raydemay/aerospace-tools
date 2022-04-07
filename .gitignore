@@ -1,5 +1,8 @@
-# VS Code
+# VSCode
 .vscode/settings.json
+
+# VSCode directories that are not at the repository root
+/**/.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
