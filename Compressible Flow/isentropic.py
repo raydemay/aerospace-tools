@@ -26,6 +26,7 @@ elif selection == 4:
     M = math.sqrt(((knownValue ** (gamma - 1)) - 1) * 2 / (gamma - 1))
 elif selection == 5:
     # A/A* known
+    # https://www.grc.nasa.gov/www/winddocs/utilities/b4wind_guide/mach.html
     case = int(input("Subsonic (1) or Supersonic (2)?"))
     if case == 1:
         A_AStar = knownValue
