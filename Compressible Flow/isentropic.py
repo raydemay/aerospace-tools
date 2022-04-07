@@ -4,7 +4,7 @@ import math
 print("ISENTROPIC FLOW CALCULATOR\n")
 selection = int(
     input(
-        "What is the known value?\n1: Mach number\n2: T0/T\n3: P0/P\n4: rho0/rho\n5: A/A*\n\nEnter a number to continue: "
+        "What is the known value?\n1: Mach number\n2: T0/T\n3: P0/P\n4: rho0/rho\n5: A/A*\n6: Mach angle (degrees)\n7: Prandtl-Meyer Angle (degrees)\n\nEnter a number to continue: "
     )
 )
 knownValue = float(input("Enter the known value: "))
@@ -47,6 +47,9 @@ elif selection == 5:
         fprime = (P + Q * X) ** ((1 / Q) - 1) - R
         X_new = X - (f / fprime)
     M = math.sqrt(X)
+elif selection == 6:
+    mu = knownValue
+    M = 1 / math.sin(mu)
 else:
     print("error")
     sys.exit()
@@ -62,16 +65,17 @@ if selection != 5:
     A_AStar = math.sqrt(
         (1 / M**2) * ((2 / (gamma + 1)) * T0_T) ** ((gamma + 1) / (gamma - 1))
     )
-if M > 1:
-    Mach_angle = math.asin(1 / M) * (180 / math.pi)
-    PrandtlMeyerAngle = (
-        math.sqrt((gamma + 1) / (gamma - 1))
-        * math.atan((math.sqrt(((gamma - 1) / (gamma + 1)) * (M**2 - 1))))
-        - math.atan(math.sqrt(M**2 - 1))
-    ) * (180 / math.pi)
-else:
-    Mach_angle = 90
-    PrandtlMeyerAngle = 0
+if selection != 6:
+    if M > 1:
+        Mach_angle = math.asin(1 / M) * (180 / math.pi)
+        PrandtlMeyerAngle = (
+            math.sqrt((gamma + 1) / (gamma - 1))
+            * math.atan((math.sqrt(((gamma - 1) / (gamma + 1)) * (M**2 - 1))))
+            - math.atan(math.sqrt(M**2 - 1))
+        ) * (180 / math.pi)
+    else:
+        Mach_angle = 90
+        PrandtlMeyerAngle = 0
 print("Mach number is ", "{:.6f}".format(M))
 print("T0/T is ", "{:.6f}".format(T0_T))
 print("P0/P is ", "{:.6f}".format(P0_P))
