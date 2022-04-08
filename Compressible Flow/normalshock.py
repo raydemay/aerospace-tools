@@ -9,8 +9,19 @@ selection = int(
 )
 knownValue = float(input("Enter the known value: "))
 gamma = float(input("Enter value for gamma: "))
-
 M1 = 0
+
+# Rayleigh Pitot Formula
+def rayleighPitot(gamma, M):
+    p = (
+        ((gamma + 1) ** 2 * M**2 / (4 * gamma * M**2 - 2 * (gamma - 1)))
+        ** (gamma / (gamma - 1))
+        * (1 - gamma + 2 * gamma * M**2)
+        / (gamma + 1)
+    )
+    return p
+
+
 if selection == 1:
     # M1 known
     M1 = knownValue
@@ -44,9 +55,8 @@ elif selection == 6:
     # P02/P01 is known
     # Newton-Raphson Method is used to make this calculation
     p02_p01 = knownValue
-    M1 = 0
     M_guess = 2
-    while abs(M_guess - M1) > 0.0000001:
+    while abs(M_guess - M1) > 1e-7:
         M1 = M_guess
         rho2_rho1 = (gamma + 1) * M1**2 / (2 + (gamma - 1) * M1**2)
         P1_P2 = (gamma + 1) / (2 * gamma * M1**2 - gamma + 1)
@@ -66,9 +76,20 @@ elif selection == 6:
         ) * dP1P2
         M_guess = M1 - (f / fprime)
 elif selection == 7:
-    # TODO: Make this math work
-    print("This requires an iterative process and has not yet been programmed")
-    sys.exit()
+    p02_p1 = knownValue
+    M_guess = 2
+    while abs(M_guess - M1) > 1e-7:
+        M1 = M_guess
+        f = rayleighPitot(gamma, M1) - p02_p1
+        # Approximate derivative using 4th order central difference
+        h = 1e-3  # This should be the step size with the lowest error
+        fprime = (
+            rayleighPitot(gamma, (M1 - 2 * h))
+            - 8 * rayleighPitot(gamma, (M1 - h))
+            + 8 * rayleighPitot(gamma, (M1 + h))
+            - rayleighPitot(gamma, (M1 + 2 * h))
+        ) / (12 * h)
+        M_guess = M1 - (f / fprime)
 else:
     print("error")
     sys.exit()
@@ -90,7 +111,8 @@ if selection != 5:
 entropyChange = cp * math.log(T2_T1) - 287 * math.log(p2_p1)
 if selection != 6:
     p02_p01 = math.exp(-entropyChange / 287)
-p02_p1 = p02_p01 * P0_P
+if selection != 7:
+    p02_p1 = p02_p01 * P0_P
 print("M1:", M1)
 print("M2:", M2)
 print("T2/T1 is ", T2_T1)
