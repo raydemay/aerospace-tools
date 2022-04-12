@@ -1,7 +1,7 @@
 import math
 import sys
 
-print("OBLIQUE WAVE CALCULATOR\n")
+print("OBLIQUE SHOCK CALCULATOR\n")
 M1 = int(input("Enter the upstream Mach number (M1):"))
 selection = int(
     input(
