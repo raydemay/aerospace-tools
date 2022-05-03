@@ -41,26 +41,35 @@ elif selection == 4:
 elif selection == 5:
     # A/A* known
     # https://www.grc.nasa.gov/www/winddocs/utilities/b4wind_guide/mach.html
-    case = int(input("Subsonic (1) or Supersonic (2)?"))
-    if case == 1:
-        A_AStar = knownValue
-        M_guess = 0.001
-    elif case == 2:
-        A_AStar = knownValue
-        M_guess = 2
-    R = A_AStar**2
-    X_new = M_guess**2
     X = 0
     E = (gamma + 1) / (gamma - 1)
     P = (E - 1) / E
     Q = 1 / E
-    while abs(X_new - X) > 0.0000001:
-        # Newton-Raphson Method
-        X = X_new
-        f = (P + Q * X) ** (1 / Q) - R * X
-        fprime = (P + Q * X) ** ((1 / Q) - 1) - R
-        X_new = X - (f / fprime)
-    M = math.sqrt(X)
+    case = int(input("Subsonic (1) or Supersonic (2)? "))
+    if case == 1:
+        A_AStar = knownValue
+        M_guess = 0.001
+        R = A_AStar**2
+        X_new = M_guess**2
+        while abs(X_new - X) > 0.0000001:
+            # Newton-Raphson Method
+            X = X_new
+            f = (P + Q * X) ** (1 / Q) - R * X
+            fprime = (P + Q * X) ** ((1 / Q) - 1) - R
+            X_new = X - (f / fprime)
+        M = math.sqrt(X)
+    elif case == 2:
+        A_AStar = knownValue
+        M_guess = 2
+        R = A_AStar ** (2 * Q / P)
+        X_new = M_guess**2
+        while abs(X_new - X) > 0.0000001:
+            # Newton-Raphson Method
+            X = X_new
+            f = (P * X + Q) ** (1 / P) - R * X
+            fprime = (P * X + Q) ** ((1 / P) - 1) - R
+            X_new = X - (f / fprime)
+        M = 1 / math.sqrt(X)
 elif selection == 6:
     mu = knownValue
     M = 1 / math.sin(mu)
