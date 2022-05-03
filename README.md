@@ -2,7 +2,7 @@
 A set of scripts for undergraduate-level aerospace engineering class work. The compressible flow scripts are inspired by the [Compressible Aerodynamics Calculator](http://www.dept.aoe.vt.edu/~devenpor/aoe3114/calc.html) and my interest in having something similar available on a TI-84 Plus CE-T Python Edition calculator
 
 [![License: MIT](https://img.shields.io/github/license/rayjd1650/aerospace-tools?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![GitHub issues](https://img.shields.io/github/issues/rayjd1650/aerospace-tools?style=for-the-badge)](https://github.com/rayjd1650/aerospace-tools/issues)
+[![GitHub issues](https://img.shields.io/github/issues/rayjd1650/aerospace-tools?style=for-the-badge)](https://github.com/raydemay/aerospace-tools/issues)
 
 [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/psf/black)
