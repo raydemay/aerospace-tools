@@ -110,7 +110,7 @@ function derivs = orbiteqJ2_Earth(~,input)
 end
 
 function OrbitElems = IFtoOF(mu, r, v)
-%Calctulate orbital parameters from given inputs
+%Calculate orbital parameters from given inputs
 %Get initial unit vectors and "easy" parameters
 h = cross (r,v); %angular momentum vector
 i_h = h/norm(h); %unit vector for h
