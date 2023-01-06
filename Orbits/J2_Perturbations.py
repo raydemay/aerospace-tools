@@ -3,6 +3,8 @@ import matplotlib
 import numpy
 
 def inertial_to_orbital(mu,r,v):
+    # Calculate orbital parameters from given inputs
+
     h = numpy.cross(r,v)
     i_h = h/numpy.linalg.norm(h)
     c = numpy.cross(v,h) - (mu/numpy.linalg.norm(r))*r
@@ -18,8 +20,10 @@ def inertial_to_orbital(mu,r,v):
     cos_omega = i_y(3)/math.sin(i)
     sin_omega = i_e(3)/math.sin(i)
     omega = numpy.arctan2(sin_omega, cos_omega)
+    Roi = [numpy.transpose(i_e),numpy.transpose(i_y),numpy.transpose(i_h)]
     r_o = Roi*r
     cos_f = r_o(1)/numpy.linalg.norm(r_o)
     sin_f = r_o(2)/numpy.linalg.norm(r_o)
     f = numpy.arctan2(sin_f, cos_f)
+    params = [a,e,i,LAN,omega,f]
     return params
