@@ -88,16 +88,11 @@ def main():
     times = np.linspace(0, 365.25 * 24, num=100)
     times_sec = times * 3600
     rI = np.zeros((3, np.size(f_inc)))
+    orbits = np.zeros((6, np.size(times_sec)))
     # r_OF = []
 
     # Get initial orbit conditions
-    orbit_params = inertial_to_orbital(r0, v0)
-    a_0 = orbit_params[0]
-    e_0 = orbit_params[1]
-    i_0 = orbit_params[2]
-    LAN_0 = orbit_params[3]
-    omega_0 = orbit_params[4]
-    f_0 = orbit_params[5]
+    a_0, e_0, i_0, LAN_0, omega_0, f_0 = inertial_to_orbital(r0, v0)
     p_0 = a_0 * (1 - e_0**2)
     r1 = np.divide(p_0, (1 + e_0 * np.cos(f_inc)))
     ro = np.squeeze(
@@ -115,18 +110,6 @@ def main():
     for i in range(1, np.size(f_inc)):
         rI[:, i - 1] = (RIO @ ro[:, i - 1]).T
 
-    # Figuring out avg orbit propagation from initial values
-    T_0 = 2 * math.pi * math.sqrt(a_0**3 / mu)
-    T_hr = T_0 / 3600
-    K2_0 = (
-        (-1.5)
-        * (math.sqrt(mu) * J2 * R_Earth**2)
-        / ((1 - e_0**2) ** 2 * a_0 ** (7 / 2))
-    )
-    omega_dot_avg = K2_0 * (2.5 * math.sin(i_0) ** 2 - 2)
-    LAN_dot_avg = K2_0 * math.cos(i_0)
-    LAN_dot = LAN_dot_avg * T_0
-
     # Numerically integrate
     init_vals = np.block([r0, v0])
     t_span = (0, times_sec[-1])
@@ -140,8 +123,19 @@ def main():
         rtol=1e-10,
         atol=1e-12,
     )
-    rx, ry, rz, vx, vy, vz = sol.y
-    print(rx.shape)
+    # split inertial frame r,v components into r and v arrays
+    rx_i, ry_i, rz_i, vx_i, vy_i, vz_i = sol.y
+    ri_vals = np.array([rx_i, ry_i, rz_i])
+    vi_vals = np.array([vx_i, vy_i, vz_i])
+
+    for j in range(0, np.size(times_sec)):
+        orbits[:, j] = inertial_to_orbital(ri_vals[:, j], vi_vals[:, j])
+    a, e, i, LAN, omega, f = orbits
+    p = a * (1 - e**2)
+    r = p / (1 + e * np.cos(f_inc))
+    print(p)
+    print(r)
+    print(r.shape)
 
 
 if __name__ == "__main__":
