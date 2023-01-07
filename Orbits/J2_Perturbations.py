@@ -78,8 +78,9 @@ def orbitalframe_rv(sma, ecc, inc, LAN, omega, f, steps):
             ]
         )
     )
-    for i in range(1, np.size(f_inc)):
-        r_inertialframe[:, i - 1] = (B @ r_orbitalframe[:, i - 1]).T
+    for i in range(0, steps):
+        r_inertialframe[:, i] = (B @ r_orbitalframe[:, i]).T
+    return r_inertialframe
 
 
 def ROI(om, i, OM):
@@ -103,7 +104,7 @@ def main():
     steps = 100
     times = np.linspace(0, 365.25 * 24, num=steps)
     times_sec = times * 3600
-    orbits = np.zeros((6, np.size(times_sec)))
+    orbits = np.zeros((6, steps))
 
     # Get initial orbit conditions
     a_0, e_0, i_0, LAN_0, omega_0, f_0 = inertial_to_orbital(r0, v0)
@@ -127,9 +128,13 @@ def main():
     ri_vals = np.array([rx_i, ry_i, rz_i])
     vi_vals = np.array([vx_i, vy_i, vz_i])
 
-    for j in range(0, np.size(times_sec)):
+    for j in range(0, steps):
         orbits[:, j] = inertial_to_orbital(ri_vals[:, j], vi_vals[:, j])
     a, e, i, LAN, omega, f = orbits
+    for k in range(0, steps - 1):
+        g = orbitalframe_rv(a[k], e[k], i[k], LAN[k], omega[k], f[k], steps)
+    print(g)
+    print(g.shape)
 
 
 if __name__ == "__main__":
