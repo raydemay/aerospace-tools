@@ -2,8 +2,6 @@ import math
 import matplotlib
 import numpy as np
 import scipy
-import time
-import tqdm
 
 # Initialize globals
 mu = 3.986004e14
@@ -38,20 +36,6 @@ def inertial_to_orbital(r, v):
     return params
 
 
-def ROI(om, i, OM):
-    ie1 = math.cos(om) * math.cos(OM) - math.sin(om) * math.cos(i) * math.sin(OM)
-    ie2 = math.cos(om) * math.sin(OM) + math.sin(om) * math.cos(i) * math.cos(OM)
-    ie3 = math.sin(om) * math.sin(i)
-    iy1 = -(math.sin(om) * math.cos(OM) + math.cos(om) * math.cos(i) * math.sin(OM))
-    iy2 = -math.sin(om) * math.sin(OM) + math.cos(om) * math.cos(i) * math.cos(OM)
-    iy3 = math.cos(om) * math.sin(i)
-    ih1 = math.sin(i) * math.sin(OM)
-    ih2 = -math.sin(i) * math.cos(OM)
-    ih3 = math.cos(i)
-    rotations = np.array([[ie1, ie2, ie3], [iy1, iy2, iy3], [ih1, ih2, ih3]])
-    return rotations
-
-
 def orbit_eqn_J2_Earth(t, input):
     # Two-body orbit equation with J2 perturbation term
     # See Eqn(10.30) in Orbital Mechanics for Engineering Students 4th Edition by Curtis
@@ -79,36 +63,51 @@ def orbit_eqn_J2_Earth(t, input):
     return derivs
 
 
-def main():
-    # orbital params in inertial frame
-    r0 = np.array([-2.491984247928895e06, 4.793000892455519e05, -6.824701828788767e06])
-    v0 = np.array([6.708662359765611e03, 2.089444378549832e03, -2.302871311065931e03])
-    f_inc = np.linspace(0, 2 * math.pi, num=100)
-    times = np.linspace(0, 365.25 * 24, num=100)
-    times_sec = times * 3600
-    rI = np.zeros((3, np.size(f_inc)))
-    orbits = np.zeros((6, np.size(times_sec)))
-    B = np.zeros((np.size(f_inc), 3, 3))
-    # r_OF = []
-
-    # Get initial orbit conditions
-    a_0, e_0, i_0, LAN_0, omega_0, f_0 = inertial_to_orbital(r0, v0)
-    p_0 = a_0 * (1 - e_0**2)
-    r1 = np.divide(p_0, (1 + e_0 * np.cos(f_inc)))
-    ro = np.squeeze(
+def orbitalframe_rv(sma, ecc, inc, LAN, omega, f, steps):
+    f_inc = np.linspace(0, 2 * math.pi, num=steps)  # true anomaly from 0 to 2pi
+    r_inertialframe = np.zeros((3, np.size(f_inc)))
+    p = sma * (1 - ecc**2)
+    r = p / (1 + ecc * math.cos(f))
+    B = np.transpose(ROI(omega, inc, LAN))
+    r_orbitalframe = np.squeeze(
         np.array(
             [
-                [np.multiply(r1, np.cos(f_inc))],
-                [np.multiply(r1, np.sin(f_inc))],
+                [np.multiply(r, np.cos(f_inc))],
+                [np.multiply(r, np.sin(f_inc))],
                 [np.zeros((np.size(f_inc)))],
             ]
         )
     )
-    ROI1 = ROI(omega_0, i_0, LAN_0)
-    RIO = ROI1.T
-
     for i in range(1, np.size(f_inc)):
-        rI[:, i - 1] = (RIO @ ro[:, i - 1]).T
+        r_inertialframe[:, i - 1] = (B @ r_orbitalframe[:, i - 1]).T
+
+
+def ROI(om, i, OM):
+    ie1 = math.cos(om) * math.cos(OM) - math.sin(om) * math.cos(i) * math.sin(OM)
+    ie2 = math.cos(om) * math.sin(OM) + math.sin(om) * math.cos(i) * math.cos(OM)
+    ie3 = math.sin(om) * math.sin(i)
+    iy1 = -(math.sin(om) * math.cos(OM) + math.cos(om) * math.cos(i) * math.sin(OM))
+    iy2 = -math.sin(om) * math.sin(OM) + math.cos(om) * math.cos(i) * math.cos(OM)
+    iy3 = math.cos(om) * math.sin(i)
+    ih1 = math.sin(i) * math.sin(OM)
+    ih2 = -math.sin(i) * math.cos(OM)
+    ih3 = math.cos(i)
+    rotations = np.array([[ie1, ie2, ie3], [iy1, iy2, iy3], [ih1, ih2, ih3]])
+    return rotations
+
+
+def main():
+    # orbital params in inertial frame
+    r0 = np.array([-2.491984247928895e06, 4.793000892455519e05, -6.824701828788767e06])
+    v0 = np.array([6.708662359765611e03, 2.089444378549832e03, -2.302871311065931e03])
+    steps = 100
+    times = np.linspace(0, 365.25 * 24, num=steps)
+    times_sec = times * 3600
+    orbits = np.zeros((6, np.size(times_sec)))
+
+    # Get initial orbit conditions
+    a_0, e_0, i_0, LAN_0, omega_0, f_0 = inertial_to_orbital(r0, v0)
+    rI = orbitalframe_rv(a_0, e_0, i_0, LAN_0, omega_0, f_0, steps)
 
     # Numerically integrate
     init_vals = np.block([r0, v0])
@@ -131,19 +130,6 @@ def main():
     for j in range(0, np.size(times_sec)):
         orbits[:, j] = inertial_to_orbital(ri_vals[:, j], vi_vals[:, j])
     a, e, i, LAN, omega, f = orbits
-    p = a * (1 - e**2)
-    r = p / (1 + e * np.cos(f_inc))
-    r_of = np.array(
-        [
-            np.multiply(r, np.cos(f_inc)),
-            np.multiply(r, np.sin(f_inc)),
-            np.zeros((np.size(f_inc))),
-        ]
-    )
-    for k in range(0, np.size(times_sec)):
-        B[k, :, :] = ROI(omega[k], i[k], LAN[k])
-    print(B)
-    print(B.shape)
 
 
 if __name__ == "__main__":
