@@ -1,11 +1,11 @@
 import math
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
 # Initialize globals
-mu = 3.986004e14
-R_Earth = 6378.137e3
+mu = 3.986004e14  # standard gravitational parapeter of Earth
+R_Earth = 6378.137e3  # Earth's radius
 J2 = 1.08263e-3  # 2nd zonal harmonic
 
 
@@ -97,18 +97,51 @@ def ROI(om, i, OM):
     return rotations
 
 
+def plot_Earth_and_Orbits(vector):
+    x = vector[:, 0, :]
+    y = vector[:, 1, :]
+    z = vector[:, 2, :]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+
+    # Make data
+    u = np.linspace(0, 2 * np.pi, 100)
+    v = np.linspace(0, np.pi, 100)
+    x_Earth = R_Earth * np.outer(np.cos(u), np.sin(v))
+    y_Earth = R_Earth * np.outer(np.sin(u), np.sin(v))
+    z_Earth = R_Earth * np.outer(np.ones(np.size(u)), np.cos(v))
+
+    # Plot the surface
+    ax.plot_surface(x_Earth, y_Earth, z_Earth, alpha=0.5)
+
+    # Plot orbits
+    for i in range(0, len(x[0])):
+        ax.plot(x[i, :], y[i, :], z[i, :], alpha=1)
+
+    # Set an equal aspect ratio
+    ax.set_aspect("equal")
+
+    plt.show()
+
+
 def main():
     # orbital params in inertial frame
-    r0 = np.array([-2.491984247928895e06, 4.793000892455519e05, -6.824701828788767e06])
-    v0 = np.array([6.708662359765611e03, 2.089444378549832e03, -2.302871311065931e03])
+    r0 = np.array(
+        [-2.491984247928895e06, 4.793000892455519e05, -6.824701828788767e06]
+    )  # m
+    v0 = np.array(
+        [6.708662359765611e03, 2.089444378549832e03, -2.302871311065931e03]
+    )  # m/s
     steps = 100
     times = np.linspace(0, 365.25 * 24, num=steps)
     times_sec = times * 3600
-    orbits = np.zeros((6, steps))
+    orbital_elements = np.zeros((6, steps))
+    g = np.zeros((steps, 3, steps))
 
     # Get initial orbit conditions
-    a_0, e_0, i_0, LAN_0, omega_0, f_0 = inertial_to_orbital(r0, v0)
-    rI = orbitalframe_rv(a_0, e_0, i_0, LAN_0, omega_0, f_0, steps)
+    # a_0, e_0, i_0, LAN_0, omega_0, f_0 = inertial_to_orbital(r0, v0)
+    # rI = orbitalframe_rv(a_0, e_0, i_0, LAN_0, omega_0, f_0, steps)
 
     # Numerically integrate
     init_vals = np.block([r0, v0])
@@ -129,12 +162,12 @@ def main():
     vi_vals = np.array([vx_i, vy_i, vz_i])
 
     for j in range(0, steps):
-        orbits[:, j] = inertial_to_orbital(ri_vals[:, j], vi_vals[:, j])
-    a, e, i, LAN, omega, f = orbits
-    for k in range(0, steps - 1):
-        g = orbitalframe_rv(a[k], e[k], i[k], LAN[k], omega[k], f[k], steps)
-    print(g)
-    print(g.shape)
+        orbital_elements[:, j] = inertial_to_orbital(ri_vals[:, j], vi_vals[:, j])
+    a, e, i, LAN, omega, f = orbital_elements
+    for k in range(0, steps):
+        g[k, :, :] = orbitalframe_rv(a[k], e[k], i[k], LAN[k], omega[k], f[k], steps)
+
+    plot_Earth_and_Orbits(g)
 
 
 if __name__ == "__main__":
