@@ -83,12 +83,12 @@ def main():
     # orbital params in inertial frame
     r0 = np.array([-2.491984247928895e06, 4.793000892455519e05, -6.824701828788767e06])
     v0 = np.array([6.708662359765611e03, 2.089444378549832e03, -2.302871311065931e03])
-    f_inc = np.linspace(0, 2 * math.pi, num=360)
-
+    f_inc = np.linspace(0, 2 * math.pi, num=100)
     times = np.linspace(0, 365.25 * 24, num=100)
     times_sec = times * 3600
     rI = np.zeros((3, np.size(f_inc)))
     orbits = np.zeros((6, np.size(times_sec)))
+    B = np.zeros((np.size(f_inc), 3, 3))
     # r_OF = []
 
     # Get initial orbit conditions
@@ -133,9 +133,17 @@ def main():
     a, e, i, LAN, omega, f = orbits
     p = a * (1 - e**2)
     r = p / (1 + e * np.cos(f_inc))
-    print(p)
-    print(r)
-    print(r.shape)
+    r_of = np.array(
+        [
+            np.multiply(r, np.cos(f_inc)),
+            np.multiply(r, np.sin(f_inc)),
+            np.zeros((np.size(f_inc))),
+        ]
+    )
+    for k in range(0, np.size(times_sec)):
+        B[k, :, :] = ROI(omega[k], i[k], LAN[k])
+    print(B)
+    print(B.shape)
 
 
 if __name__ == "__main__":
