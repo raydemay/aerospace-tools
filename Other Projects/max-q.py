@@ -71,7 +71,6 @@ def main():
         accel = (F_net / (m)) * np.sin(
             pitch
         )  # only want vertical component of acceleration
-        print(alt, elapsed_time, m)
 
     # Plot w/ 1g accel
     plt.plot(time, q_values, "b-")
