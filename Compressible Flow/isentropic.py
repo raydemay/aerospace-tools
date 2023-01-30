@@ -50,7 +50,9 @@ elif selection == 5:
         A_AStar = knownValue
         M_guess = 0.001
         R = A_AStar**2
-        X_new = M_guess**2
+        a = P**1 / Q
+        r = (R - 1) / (2 * a)
+        X_new = 1 / ((1 + r) + math.sqrt(r * (r + 2)))
         while abs(X_new - X) > 0.0000001:
             # Newton-Raphson Method
             X = X_new
@@ -62,7 +64,9 @@ elif selection == 5:
         A_AStar = knownValue
         M_guess = 2
         R = A_AStar ** (2 * Q / P)
-        X_new = M_guess**2
+        a = Q**1 / P
+        r = (R - 1) / (2 * a)
+        X_new = 1 / ((1 + r) + math.sqrt(r * (r + 2)))
         while abs(X_new - X) > 0.0000001:
             # Newton-Raphson Method
             X = X_new
