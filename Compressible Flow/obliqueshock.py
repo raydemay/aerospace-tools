@@ -2,7 +2,7 @@ import math
 import sys
 
 print("OBLIQUE SHOCK CALCULATOR\n")
-M1 = int(input("Enter the upstream Mach number (M1):"))
+M1 = float(input("Enter the upstream Mach number (M1):"))
 selection = int(
     input(
         "What is the known value?\n1: Wave Angle (Beta)\n2: Deflection Angle (theta)\n3: P2/P1\n4: rho2/rho1\n5: T2/T1\n6: p02/p01\n7: p02/p1\n8: M2\n\nEnter a number to continue: "
@@ -28,8 +28,31 @@ if selection == 1:
     Mn1 = M1 * math.sin(beta * math.pi / 180)
 elif selection == 2:
     # Deflection angle is known
-    # TODO Implement Eq. 4.19 from Anderson
     theta = knownValue
+    # TODO Implement Eq. 4.19 from Anderson
+    L = math.sqrt(
+        (M1**2 - 1) ** 3
+        - 3
+        * (1 + (gamma - 1) * M1**2 / 2)
+        * (1 + (gamma + 1) * M1**2 / 2)
+        * math.tan(theta) ** 2
+    )
+    X = (
+        (M1**2 - 1) ** 3
+        - 9
+        * (1 + (gamma - 1) * M1**2 / 2)
+        * (1 + (gamma + 1) * M1**2 / 2 + (gamma + 1) * M1**4 / 4)
+        * math.tan(theta) ** 2
+    ) / L**3
+    # check weak or strong solution
+    A_weak = math.cos((4 * math.pi + math.acos(X)) / 3)
+    A_strong = math.cos(math.acos(X) / 3)
+    beta_weak = math.atan(M1**2 - 1 + 2 * L * A_weak) / (
+        3 * (1 + (gamma - 1) * M1**2 / 2) * math.tan(theta)
+    )
+    beta_strong = math.atan(M1**2 - 1 + 2 * L * A_weak) / (
+        3 * (1 + (gamma - 1) * M1**2 / 2) * math.tan(theta)
+    )
 elif selection == 3:
     # Static pressure ratio known
     P2_P1 = knownValue
@@ -102,7 +125,7 @@ else:
 # Normal shock components
 # TODO
 
-#Final values
+# Final values
 print("M1:", M1)
 print("M2:", M2)
 print("Wave angle: ", beta, "degrees")
