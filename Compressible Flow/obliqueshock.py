@@ -5,7 +5,7 @@ print("OBLIQUE SHOCK CALCULATOR\n")
 M1 = float(input("Enter the upstream Mach number (M1):"))
 selection = int(
     input(
-        "What is the known value?\n1: Wave Angle (Beta)\n2: Deflection Angle (theta)\n3: P2/P1\n4: rho2/rho1\n5: T2/T1\n6: p02/p01\n7: p02/p1\n8: M2\n\nEnter a number to continue: "
+        "What is the second known value?\n1: Wave Angle (Beta)\n2: Deflection Angle (theta)\n3: P2/P1\n4: rho2/rho1\n5: T2/T1\n6: p02/p01\n7: p02/p1\n8: M2\n\nEnter a number to continue: "
     )
 )
 knownValue = float(input("Enter the known value. Please enter any angles in degrees: "))
@@ -74,8 +74,8 @@ elif selection == 5:
 elif selection == 6:
     # total pressure ratio known
     p02_p01 = knownValue
-    Mn1 = 1
     M_guess = 2
+    Mn1 = 1
     # Newton-Raphson Method
     while abs(M_guess - Mn1) > 1e-7:
         Mn1 = M_guess
@@ -96,6 +96,7 @@ elif selection == 6:
             P1_P2 ** ((2 - gamma) / (gamma - 1))
         ) * dP1P2
         M_guess = Mn1 - (f / fprime)
+    Mn1 = M_guess
 elif selection == 7:
     # Pitot tube ratio known
     p02_p1 = knownValue
@@ -113,6 +114,7 @@ elif selection == 7:
             - rayleighPitot(gamma, (Mn1 + 2 * h))
         ) / (12 * h)
         M_guess = Mn1 - (f / fprime)
+    Mn1 = M_guess
 elif selection == 8:
     # M2 known
     # TODO Implement NACA 1135 Equation 132
