@@ -4,7 +4,7 @@ A set of scripts for undergraduate-level aerospace engineering class work.
 
 ## Compressible Flow
 
-The compressible flow scripts are inspired by the [Compressible Aerodynamics Calculator](http://www.dept.aoe.vt.edu/~devenpor/aoe3114/calc.html) and my interest in having something similar available on a TI-84 Plus CE-T Python Edition calculator.
+The compressible flow scripts are inspired by the [Compressible Aerodynamics Calculator](https://www.engapplets.vt.edu/fluids/compresssibleAero/calc.html) and my interest in having something similar available on a TI-84 Plus CE-T Python Edition calculator.
 
 ## Orbits
 
