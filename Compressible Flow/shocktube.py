@@ -1,6 +1,7 @@
 """
 SHOCK TUBE CALCULATOR for TI-84 Plus CE Python (MicroPython).
-Calculates incident and reflected shock parameters from diaphragm or shock pressure ratio.
+Calculates incident and reflected shock parameters from diaphragm ratio,
+shock pressure ratio, or incident shock Mach number.
 """
 import math
 import sys
@@ -33,8 +34,8 @@ def p4_p1_from_p2_p1(a1, a4, g1, g4, p2_p1):
 
 # --- User Interface ---
 print("--- SHOCK TUBE ---")
-print("1: P2/P1 (Shock ratio)\n2: P4/P1 (Diaphragm ratio)")
-opt = int(input("Known [1-2]: "))
+print("1:P2/P1  2:P4/P1  3:Ms")
+opt = int(input("Known [1-3]: "))
 val = float(input("Value: "))
 
 print("\n-- Driven Gas (1) --")
@@ -54,28 +55,52 @@ a4 = math.sqrt(g4 * R4 * T4)
 # Resolve P2/P1 and P4/P1
 if opt == 1:
     p2_p1 = val
+    if p2_p1 < 1.0:
+        print("Error: P2/P1 >= 1")
+        sys.exit()
     p4_p1 = p4_p1_from_p2_p1(a1, a4, g1, g4, p2_p1)
 elif opt == 2:
     p4_p1 = val
+    if p4_p1 < 1.0:
+        print("Error: P4/P1 >= 1")
+        sys.exit()
     p2_p1 = solve(lambda p: p4_p1_from_p2_p1(a1, a4, g1, g4, p), p4_p1, 1.5, 4.0)
+elif opt == 3:
+    ms = val
+    if ms < 1.0:
+        print("Error: Ms >= 1")
+        sys.exit()
+    p2_p1 = 1 + ((2 * g1) / (g1 + 1)) * (ms**2 - 1)
+    p4_p1 = p4_p1_from_p2_p1(a1, a4, g1, g4, p2_p1)
 else:
     print("error")
     sys.exit()
 
-# Incident shock Mach number Ms
+# Incident shock Mach number Ms, shock speed W, induced flow velocity up
 ms = math.sqrt((p2_p1 - 1) * (g1 + 1) / (2 * g1) + 1)
+w = ms * a1
+up = (2 * a1 / (g1 + 1)) * (ms - 1 / ms)
 
-# Reflected Shock Mach number Mr and pressure ratio P5/P2
-term = math.sqrt(
-    1 + (2 * (g1 - 1) / (g1 + 1) ** 2) * (ms**2 - 1) * (g1 + 1 / ms**2)
-)
-a_quad = (ms / (ms**2 - 1)) * term
-mr = (1 + math.sqrt(1 + 4 * a_quad**2)) / (2 * a_quad)
-p5_p2 = 1 + ((2 * g1) / (g1 + 1)) * (mr**2 - 1)
+# Reflected Shock Mach number Mr and pressure ratios
+if ms <= 1.0001:
+    mr = 1.0
+    p5_p2 = 1.0
+else:
+    term = math.sqrt(
+        1 + (2 * (g1 - 1) / (g1 + 1) ** 2) * (ms**2 - 1) * (g1 + 1 / ms**2)
+    )
+    a_quad = (ms / (ms**2 - 1)) * term
+    mr = (1 + math.sqrt(1 + 4 * a_quad**2)) / (2 * a_quad)
+    p5_p2 = 1 + ((2 * g1) / (g1 + 1)) * (mr**2 - 1)
+
+p5_p1 = p5_p2 * p2_p1
 
 # Display results formatted for TI-84 screen (26x10 chars)
 print("\nP4/P1: %.4f" % p4_p1)
 print("P2/P1: %.4f" % p2_p1)
+print("P5/P1: %.4f" % p5_p1)
+print("P5/P2: %.4f" % p5_p2)
 print("Ms   : %.4f" % ms)
 print("Mr   : %.4f" % mr)
-print("P5/P2: %.4f" % p5_p2)
+print("W    : %.1f m/s" % w)
+print("up   : %.1f m/s" % up)
