@@ -1,248 +1,131 @@
+"""
+OBLIQUE SHOCK CALCULATOR for TI-84 Plus CE Python (MicroPython).
+Calculates flow properties across an oblique shock wave given any one parameter.
+"""
 import math
 import sys
 
-print("OBLIQUE SHOCK CALCULATOR\n")
-M1 = float(input("Enter the upstream Mach number (M1):"))
-selection = int(
-    input(
-        "What is the second known value?\n1: Wave Angle (Beta)\n2: Deflection Angle (theta)\n3: P2/P1\n4: rho2/rho1\n5: T2/T1\n6: p02/p01\n7: p02/p1\n8: M2\n\nEnter a number to continue: "
+
+def solve(func, target, x0, x1):
+    """Secant solver to invert monotonic compressible flow relations."""
+    for _ in range(40):
+        f0, f1 = func(x0) - target, func(x1) - target
+        if abs(f1) < 1e-6 or abs(x1 - x0) < 1e-6:
+            return x1
+        x0, x1 = x1, x1 - f1 * (x1 - x0) / (f1 - f0)
+    return x1
+
+
+# --- Oblique Shock Relations ---
+# Normal shock functions parameterized by normal Mach number Mn1
+def p_ratio(g, mn):
+    """Static pressure ratio P2/P1."""
+    return 1 + (2 * g / (g + 1)) * (mn**2 - 1)
+
+
+def r_ratio(g, mn):
+    """Density ratio rho2/rho1."""
+    return (g + 1) * mn**2 / (2 + (g - 1) * mn**2)
+
+
+def t_ratio(g, mn):
+    """Temperature ratio T2/T1."""
+    return p_ratio(g, mn) / r_ratio(g, mn)
+
+
+def mn2_from_mn1(g, mn):
+    """Downstream normal Mach number Mn2."""
+    return math.sqrt((1 + 0.5 * (g - 1) * mn**2) / (g * mn**2 - 0.5 * (g - 1)))
+
+
+def p0_ratio(g, mn):
+    """Total pressure ratio across shock p02/p01 from entropy change."""
+    ds = (g * 287 / (g - 1)) * math.log(t_ratio(g, mn)) - 287 * math.log(
+        p_ratio(g, mn)
     )
-)
-knownValue = float(input("Enter the known value. Please enter any angles in degrees: "))
-gamma = float(input("Enter value for gamma: "))
-Mn1 = 0
-beta = 0
-theta = 0
-M2 = 0
-P2_P1 = 0
-rho2_rho1 = 0
-T2_T1 = 0
-p02_p01 = 0
-p02_p1 = 0
-
-# Rayleigh Pitot Formula
-def rayleighPitot(gamma, M):
-    p = (
-        ((gamma + 1) ** 2 * M**2 / (4 * gamma * M**2 - 2 * (gamma - 1)))
-        ** (gamma / (gamma - 1))
-        * (1 - gamma + 2 * gamma * M**2)
-        / (gamma + 1)
-    )
-    return p
+    return math.exp(-ds / 287)
 
 
-if selection == 1:
-    # Wave angle is known
-    beta = knownValue
-    Mn1 = M1 * math.sin(beta * math.pi / 180)
-elif selection == 2:
-    # Deflection angle is known
-    theta = knownValue
-    if theta == 0:
-        case = int(input("Weak shock (1) or Strong shock (2)? "))
-        if case == 2:
-            beta = 90.0
-        else:
-            beta = math.asin(1 / M1) * (180 / math.pi)
+def theta_from_beta(m1, g, b):
+    """Deflection angle theta (rad) from M1 and wave angle beta (rad)."""
+    if b >= math.pi / 2:
+        return 0.0
+    num = 2 * (1 / math.tan(b)) * (m1**2 * math.sin(b) ** 2 - 1)
+    den = m1**2 * (g + math.cos(2 * b)) + 2
+    return math.atan(num / den)
+
+
+def m2_from_mn1(m1, g, mn1):
+    """Downstream Mach number M2 from normal component Mn1."""
+    sin_b = min(1.0, mn1 / m1)
+    b = math.asin(sin_b)
+    th = theta_from_beta(m1, g, b)
+    mn2 = mn2_from_mn1(g, mn1)
+    return mn2 / math.sin(b - th) if (b - th) > 1e-5 else mn2
+
+
+# --- User Interface ---
+print("--- OBLIQUE SHOCK ---")
+m1 = float(input("M1: "))
+gin = input("gamma [1.4]: ")
+g = float(gin) if gin else 1.4
+
+print("1:Beta  2:Theta 3:P2/P1\n4:r2/r1 5:T2/T1 6:p02/p01\n7:p02/p1 8:M2")
+opt = int(input("Known [1-8]: "))
+val = float(input("Value (deg if angle): "))
+
+# Resolve normal Mach number Mn1 and wave angle beta (rad)
+mu = math.asin(1 / m1)  # Mach angle (minimum physical wave angle)
+
+if opt == 1:
+    beta = val * math.pi / 180
+    mn1 = m1 * math.sin(beta)
+elif opt == 2:
+    th = val * math.pi / 180
+    c_in = input("1:Weak 2:Strong [1]: ")
+    is_strong = c_in == "2"
+    if is_strong:
+        beta = solve(
+            lambda b: theta_from_beta(m1, g, b),
+            th,
+            math.pi / 2 - 0.05,
+            math.pi / 2 - 0.2,
+        )
     else:
-        theta_rad = theta * math.pi / 180
-        tan_th = math.tan(theta_rad)
-        L_sq = (
-            (M1**2 - 1) ** 2
-            - 3
-            * (1 + (gamma - 1) * M1**2 / 2)
-            * (1 + (gamma + 1) * M1**2 / 2)
-            * tan_th**2
-        )
-        if L_sq < 0:
-            print("Deflection angle too large; shock is detached.")
-            sys.exit()
-        L = math.sqrt(L_sq)
-        X = (
-            (M1**2 - 1) ** 3
-            - 9
-            * (1 + (gamma - 1) * M1**2 / 2)
-            * (1 + (gamma - 1) * M1**2 / 2 + (gamma + 1) * M1**4 / 4)
-            * tan_th**2
-        ) / L**3
-        if X > 1:
-            X = 1.0
-        elif X < -1:
-            X = -1.0
-
-        # check weak or strong solution
-        A_weak = math.cos((4 * math.pi + math.acos(X)) / 3)
-        A_strong = math.cos(math.acos(X) / 3)
-        beta_weak = (
-            math.atan(
-                (M1**2 - 1 + 2 * L * A_weak)
-                / (3 * (1 + (gamma - 1) * M1**2 / 2) * tan_th)
-            )
-            * (180 / math.pi)
-        )
-        beta_strong = (
-            math.atan(
-                (M1**2 - 1 + 2 * L * A_strong)
-                / (3 * (1 + (gamma - 1) * M1**2 / 2) * tan_th)
-            )
-            * (180 / math.pi)
-        )
-
-        case = int(input("Weak shock (1) or Strong shock (2)? "))
-        if case == 2:
-            beta = beta_strong
-        else:
-            beta = beta_weak
-
-    Mn1 = M1 * math.sin(beta * math.pi / 180)
-elif selection == 3:
-    # Static pressure ratio known
-    P2_P1 = knownValue
-    Mn1 = math.sqrt((P2_P1 - 1) * (gamma + 1) / (2 * gamma) + 1)
-    beta = math.asin(Mn1 / M1) * (180 / math.pi)
-elif selection == 4:
-    # density ratio known
-    rho2_rho1 = knownValue
-    Mn1 = math.sqrt((2 * rho2_rho1) / ((gamma + 1) - rho2_rho1 * (gamma - 1)))
-    beta = math.asin(Mn1 / M1) * (180 / math.pi)
-elif selection == 5:
-    # temperature ratio known
-    T2_T1 = knownValue
-    a = 2 * (gamma**2 - gamma)
-    b = 4 * gamma - (gamma - 1) ** 2 - T2_T1 * (gamma + 1) ** 2
-    c = -2 * (gamma - 1)
-    Mn1 = math.sqrt((-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a))
-    beta = math.asin(Mn1 / M1) * (180 / math.pi)
-elif selection == 6:
-    # total pressure ratio known
-    p02_p01 = knownValue
-    M_guess = 2
-    Mn1 = 1
-    # Newton-Raphson Method
-    while abs(M_guess - Mn1) > 1e-7:
-        Mn1 = M_guess
-        rho2_rho1 = (gamma + 1) * Mn1**2 / (2 + (gamma - 1) * Mn1**2)
-        P1_P2 = (gamma + 1) / (2 * gamma * Mn1**2 - gamma + 1)
-        f = (rho2_rho1 ** (gamma / (gamma - 1))) * (
-            P1_P2 ** (1 / (gamma - 1))
-        ) - p02_p01
-        dP1P2 = -4 * gamma * Mn1 * (gamma + 1) / (2 * gamma * Mn1**2 - gamma + 1) ** 2
-        drho2rho1 = 4 * (gamma + 1) * Mn1 / ((gamma - 1) * Mn1**2 + 2) ** 2
-        fprime = (gamma / (gamma - 1)) * (
-            rho2_rho1 ** (1 / (gamma - 1))
-        ) * drho2rho1 * (P1_P2 ** (1 / (gamma - 1))) + (
-            rho2_rho1 ** (gamma / (gamma - 1))
-        ) * (
-            1 / (gamma - 1)
-        ) * (
-            P1_P2 ** ((2 - gamma) / (gamma - 1))
-        ) * dP1P2
-        M_guess = Mn1 - (f / fprime)
-    Mn1 = M_guess
-    beta = math.asin(Mn1 / M1) * (180 / math.pi)
-elif selection == 7:
-    # Stagnation to upstream static pressure ratio known (p02/p1)
-    p02_p1 = knownValue
-    T0_T = 1 + 0.5 * (gamma - 1) * M1**2
-    P0_P = T0_T ** (gamma / (gamma - 1))
-    p02_p01 = p02_p1 / P0_P
-    M_guess = 2
-    Mn1 = 1
-    # Newton-Raphson Method
-    while abs(M_guess - Mn1) > 1e-7:
-        Mn1 = M_guess
-        P1_P2 = 1 / (1 + ((2 * gamma) / (gamma + 1)) * (Mn1**2 - 1))
-        rho2_rho1 = (gamma + 1) * Mn1**2 / (2 + (gamma - 1) * Mn1**2)
-        f = (rho2_rho1 ** (gamma / (gamma - 1))) * (
-            P1_P2 ** (1 / (gamma - 1))
-        ) - p02_p01
-        dP1P2 = -4 * gamma * Mn1 * (gamma + 1) / (2 * gamma * Mn1**2 - gamma + 1) ** 2
-        drho2rho1 = 4 * (gamma + 1) * Mn1 / ((gamma - 1) * Mn1**2 + 2) ** 2
-        fprime = (gamma / (gamma - 1)) * (
-            rho2_rho1 ** (1 / (gamma - 1))
-        ) * drho2rho1 * (P1_P2 ** (1 / (gamma - 1))) + (
-            rho2_rho1 ** (gamma / (gamma - 1))
-        ) * (
-            1 / (gamma - 1)
-        ) * (
-            P1_P2 ** ((2 - gamma) / (gamma - 1))
-        ) * dP1P2
-        M_guess = Mn1 - (f / fprime)
-    Mn1 = M_guess
-    beta = math.asin(Mn1 / M1) * (180 / math.pi)
-elif selection == 8:
-    # M2 known
-    # NACA 1135 Equation 132 solved as a quadratic in Mn1^2
-    M2 = knownValue
-    a = 4 * gamma + 2 * gamma * (gamma - 1) * M2**2
-    b = (
-        (4 * gamma - (gamma - 1) ** 2) * M2**2
-        - (gamma + 1) ** 2 * M1**2
-        - 4 * (gamma - 1)
-    )
-    c = -4 - 2 * (gamma - 1) * M2**2
-    Mn1 = math.sqrt((-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a))
-    sin_beta = Mn1 / M1
-    if sin_beta > 1:
-        sin_beta = 1.0
-    beta = math.asin(sin_beta) * (180 / math.pi)
+        beta = solve(lambda b: theta_from_beta(m1, g, b), th, mu + 0.05, mu + 0.2)
+    mn1 = m1 * math.sin(beta)
+elif opt == 8:
+    mn1 = solve(lambda mn: m2_from_mn1(m1, g, mn), val, 1.1, 1.6)
+    beta = math.asin(min(1.0, mn1 / m1))
 else:
-    print("error")
-    sys.exit()
+    lookup = {
+        3: p_ratio,
+        4: r_ratio,
+        5: t_ratio,
+        6: p0_ratio,
+        7: lambda g, mn: p0_ratio(g, mn)
+        * ((1 + 0.5 * (g - 1) * m1**2) ** (g / (g - 1))),
+    }
+    mn1 = solve(lambda mn: lookup[opt](g, mn), val, 1.1, 2.0)
+    beta = math.asin(min(1.0, mn1 / m1))
 
+# Downstream state properties
+mn2 = mn2_from_mn1(g, mn1)
+p2p1 = p_ratio(g, mn1)
+r2r1 = r_ratio(g, mn1)
+t2t1 = p2p1 / r2r1
+p02p01 = p0_ratio(g, mn1)
+p02p1 = p02p01 * ((1 + 0.5 * (g - 1) * m1**2) ** (g / (g - 1)))
 
-# Normal shock components
-cp = gamma * 287 / (gamma - 1)
-T0_T = 1 + 0.5 * (gamma - 1) * M1**2
-P0_P = T0_T ** (gamma / (gamma - 1))
+theta = theta_from_beta(m1, g, beta) if opt != 2 else (val * math.pi / 180)
+m2 = mn2 / math.sin(beta - theta) if (beta - theta) > 1e-5 else mn2
 
-Mn2 = math.sqrt(
-    (1 + (gamma - 1) * (Mn1**2) / 2) / (gamma * Mn1**2 - (gamma - 1) / 2)
-)
-
-if selection != 3:
-    P2_P1 = 1 + ((2 * gamma) / (gamma + 1)) * (Mn1**2 - 1)
-if selection != 4:
-    rho2_rho1 = (gamma + 1) * Mn1**2 / (2 + (gamma - 1) * Mn1**2)
-if selection != 5:
-    T2_T1 = P2_P1 / rho2_rho1
-
-entropyChange = cp * math.log(T2_T1) - 287 * math.log(P2_P1)
-
-if selection != 6:
-    p02_p01 = math.exp(-entropyChange / 287)
-if selection != 7:
-    p02_p1 = p02_p01 * P0_P
-
-if selection != 1 and selection != 2:
-    sin_beta = Mn1 / M1
-    if sin_beta > 1:
-        sin_beta = 1.0
-    beta = math.asin(sin_beta) * (180 / math.pi)
-
-if selection != 2:
-    if beta == 90:
-        theta = 0.0
-    else:
-        beta_rad = beta * math.pi / 180
-        theta_rad = math.atan(
-            2
-            * (1 / math.tan(beta_rad))
-            * (Mn1**2 - 1)
-            / (M1**2 * (gamma + math.cos(2 * beta_rad)) + 2)
-        )
-        theta = theta_rad * 180 / math.pi
-
-if selection != 8:
-    M2 = Mn2 / math.sin((beta - theta) * math.pi / 180)
-
-# Final values
-print("M1:", M1)
-print("M2:", M2)
-print("Wave angle: ", beta, "degrees")
-print("Deflection angle: ", theta, "degrees")
-print("T2/T1 is ", T2_T1)
-print("P2/P1 is ", P2_P1)
-print("rho2/rho1 is", rho2_rho1)
-print("p02/p01 is", p02_p01)
-print("p02/p1 is", p02_p1)
+# Display results formatted for TI-84 screen (26x10 chars)
+print("\nM1: %.4f  M2: %.4f" % (m1, m2))
+print("Wave beta : %.2f deg" % (beta * 180 / math.pi))
+print("Defl theta: %.2f deg" % (theta * 180 / math.pi))
+print("P2/P1   : %.4f" % p2p1)
+print("rho2/rho: %.4f" % r2r1)
+print("T2/T1   : %.4f" % t2t1)
+print("p02/p01 : %.4f" % p02p01)
+print("p02/p1  : %.4f" % p02p1)

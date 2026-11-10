@@ -1,120 +1,102 @@
-import sys
+"""
+ISENTROPIC FLOW CALCULATOR for TI-84 Plus CE Python (MicroPython).
+Calculates 1D isentropic flow properties given any one flow parameter.
+"""
 import math
+import sys
 
-print("ISENTROPIC FLOW CALCULATOR\n")
-selection = int(
-    input(
-        "What is the known value?\n1: Mach number\n2: T0/T\n3: P0/P\n4: rho0/rho\n5: A/A*\n6: Mach angle (degrees)\n7: Prandtl-Meyer Angle (degrees)\n\nEnter a number to continue: "
+
+def solve(func, target, x0, x1):
+    """Secant solver to invert monotonic compressible flow relations."""
+    for _ in range(40):
+        f0, f1 = func(x0) - target, func(x1) - target
+        if abs(f1) < 1e-6 or abs(x1 - x0) < 1e-6:
+            return x1
+        x0, x1 = x1, x1 - f1 * (x1 - x0) / (f1 - f0)
+    return x1
+
+
+# --- Forward Isentropic Relations (given M, gamma) ---
+def t0_t(g, m):
+    """Stagnation-to-static temperature ratio T0/T."""
+    return 1 + 0.5 * (g - 1) * m**2
+
+
+def p0_p(g, m):
+    """Stagnation-to-static pressure ratio P0/P."""
+    return t0_t(g, m) ** (g / (g - 1))
+
+
+def r0_r(g, m):
+    """Stagnation-to-static density ratio rho0/rho."""
+    return t0_t(g, m) ** (1 / (g - 1))
+
+
+def a_astar(g, m):
+    """Area ratio A/A* from Mach number."""
+    if m <= 0:
+        return 1e9
+    return math.sqrt(
+        (1 / m**2) * ((2 / (g + 1)) * t0_t(g, m)) ** ((g + 1) / (g - 1))
     )
-)
-knownValue = float(input("Enter the known value: "))
-gamma = float(input("Enter value for gamma: "))
-M = 0
 
 
-# Defining Prandtl-Meyer Function as a function since it used in multiple places
-def PrandtlMeyer(gamma, M):
-    nu = (
-        math.sqrt((gamma + 1) / (gamma - 1))
-        * math.atan((math.sqrt(((gamma - 1) / (gamma + 1)) * (M**2 - 1))))
-        - math.atan(math.sqrt(M**2 - 1))
-    ) * (180 / math.pi)
-    return nu
+def prandtl_meyer(g, m):
+    """Prandtl-Meyer angle nu (deg) for supersonic flow."""
+    if m <= 1.0:
+        return 0.0
+    term1 = math.sqrt((g + 1) / (g - 1)) * math.atan(
+        math.sqrt((g - 1) / (g + 1) * (m**2 - 1))
+    )
+    term2 = math.atan(math.sqrt(m**2 - 1))
+    return (term1 - term2) * (180 / math.pi)
 
 
-# Determine Mach number from inputs
-if selection == 1:
-    # Mach number is known
-    M = knownValue
-elif selection == 2:
-    # T0/T is known
-    T0_T = knownValue
-    M = math.sqrt((knownValue - 1) * 2 / (gamma - 1))
-elif selection == 3:
-    # P0/P is known
-    P0_P = knownValue
-    M = math.sqrt(((knownValue ** ((gamma - 1) / gamma)) - 1) * 2 / (gamma - 1))
-elif selection == 4:
-    # rho0/rho is known
-    R0_R = knownValue
-    M = math.sqrt(((knownValue ** (gamma - 1)) - 1) * 2 / (gamma - 1))
-elif selection == 5:
-    # A/A* known
-    # https://www.grc.nasa.gov/www/winddocs/utilities/b4wind_guide/mach.html
-    X = 0
-    E = (gamma + 1) / (gamma - 1)
-    P = (E - 1) / E
-    Q = 1 / E
-    case = int(input("Subsonic (1) or Supersonic (2)? "))
-    if case == 1:
-        A_AStar = knownValue
-        M_guess = 0.001
-        R = A_AStar**2
-        a = P**1 / Q
-        r = (R - 1) / (2 * a)
-        X_new = 1 / ((1 + r) + math.sqrt(r * (r + 2)))
-        while abs(X_new - X) > 0.0000001:
-            # Newton-Raphson Method
-            X = X_new
-            f = (P + Q * X) ** (1 / Q) - R * X
-            fprime = (P + Q * X) ** ((1 / Q) - 1) - R
-            X_new = X - (f / fprime)
-        M = math.sqrt(X)
-    elif case == 2:
-        A_AStar = knownValue
-        M_guess = 2
-        R = A_AStar ** (2 * Q / P)
-        a = Q**1 / P
-        r = (R - 1) / (2 * a)
-        X_new = 1 / ((1 + r) + math.sqrt(r * (r + 2)))
-        while abs(X_new - X) > 0.0000001:
-            # Newton-Raphson Method
-            X = X_new
-            f = (P * X + Q) ** (1 / P) - R * X
-            fprime = (P * X + Q) ** ((1 / P) - 1) - R
-            X_new = X - (f / fprime)
-        M = 1 / math.sqrt(X)
-elif selection == 6:
-    mu = knownValue
-    M = 1 / math.sin(mu)
-elif selection == 7:
-    # Prandtl-Meyer function known
-    nu = knownValue
-    M_guess = 2
-    while abs(M_guess - M) > 0.0000001:
-        M = M_guess
-        f = (PrandtlMeyer(gamma, M) - nu) * (math.pi / 180)  # needs to be in radians
-        fprime = math.sqrt(M**2 - 1) / (1 + (gamma - 1) * M**2 / 2) / M
-        M_guess = M - (f / fprime)
+# --- User Interface ---
+print("--- ISENTROPIC FLOW ---")
+gin = input("gamma [1.4]: ")
+g = float(gin) if gin else 1.4
+
+print("1:Mach  2:T0/T  3:P0/P\n4:r0/r  5:A/A*  6:mu\n7:Prandtl-Meyer")
+opt = int(input("Known [1-7]: "))
+val = float(input("Value: "))
+
+# Resolve Mach number M
+if opt == 1:
+    m = val
+elif opt == 2:
+    m = math.sqrt(max(0.0, (val - 1) * 2 / (g - 1)))
+elif opt == 3:
+    m = math.sqrt(max(0.0, ((val ** ((g - 1) / g)) - 1) * 2 / (g - 1)))
+elif opt == 4:
+    m = math.sqrt(max(0.0, ((val ** (g - 1)) - 1) * 2 / (g - 1)))
+elif opt == 5:
+    c_in = input("1:Sub 2:Sup [2]: ")
+    if c_in == "1":
+        m = solve(lambda x: a_astar(g, x), val, 0.2, 0.4)
+    else:
+        m = solve(lambda x: a_astar(g, x), val, 1.5, 2.5)
+elif opt == 6:
+    m = 1 / math.sin(val * math.pi / 180)
+elif opt == 7:
+    m = solve(lambda x: prandtl_meyer(g, x), val, 1.5, 2.5)
 else:
     print("error")
     sys.exit()
 
+# Compute all flow ratios
+t0t = t0_t(g, m)
+p0p = p0_p(g, m)
+r0r = r0_r(g, m)
+a_ast = a_astar(g, m)
+mu = (math.asin(1 / m) * 180 / math.pi) if m >= 1.0 else 90.0
+nu = prandtl_meyer(g, m)
 
-# Calculate ratios and Mach angle from given/calculated Mach Number
-if selection != 2:
-    T0_T = 1 + 0.5 * (gamma - 1) * M**2
-if selection != 3:
-    P0_P = T0_T ** (gamma / (gamma - 1))
-if selection != 4:
-    R0_R = T0_T ** (1 / (gamma - 1))
-if selection != 5:
-    A_AStar = math.sqrt(
-        (1 / M**2) * ((2 / (gamma + 1)) * T0_T) ** ((gamma + 1) / (gamma - 1))
-    )
-if selection != 6:
-    if M > 1:
-        Mach_angle = math.asin(1 / M) * (180 / math.pi)
-if selection != 7:
-    if M > 1:
-        nu = PrandtlMeyer(gamma, M)
-    else:
-        Mach_angle = 90
-        nu = 0
-print("Mach number is ", "{:.6f}".format(M))
-print("T0/T is ", "{:.6f}".format(T0_T))
-print("P0/P is ", "{:.6f}".format(P0_P))
-print("rho0/rho is", "{:.6f}".format(R0_R))
-print("A/A*", "{:.6f}".format(A_AStar))
-print("Mach angle is", "{:.6f}".format(Mach_angle), "degrees")
-print("Prandtl-Meyer angle is ", "{:.6f}".format(nu), "degrees")
+# Display results formatted for TI-84 screen (26x10 chars)
+print("\nMach    : %.4f" % m)
+print("T0/T    : %.4f" % t0t)
+print("P0/P    : %.4f" % p0p)
+print("rho0/rho: %.4f" % r0r)
+print("A/A*    : %.4f" % a_ast)
+print("Mach ang: %.2f deg" % mu)
+print("PM angle: %.2f deg" % nu)

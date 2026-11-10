@@ -1,78 +1,81 @@
+"""
+SHOCK TUBE CALCULATOR for TI-84 Plus CE Python (MicroPython).
+Calculates incident and reflected shock parameters from diaphragm or shock pressure ratio.
+"""
 import math
 import sys
 
-print(
-    "SHOCK TUBE CALCULATOR\nThis will calculate the pressure ratio and Mach number of shock (including reflected shock) based on diaphragm or shock pressure ratio"
-)
 
-selection = int(
-    input(
-        "What is the known value?\n1: P2/P1\n2: P4/P1\n\nEnter a number to continue: "
-    )
-)
-knownValue = float(input("Enter the known value: "))
-gammaDriver = float(input("Enter gamma for driver gas: "))
-Tdriver = float(input("Enter temperature of driver gas in Kelvin: "))
-Rdriver = float(input("Enter gas constant for driver gas: "))
-gammaDriven = float(input("Enter gamma for driven gas: "))
-Tdriven = float(input("Enter temperature of driven gas in Kelvin: "))
-Rdriven = float(input("Enter gas constant for driven gas: "))
+def solve(func, target, x0, x1):
+    """Secant solver to invert monotonic relations."""
+    for _ in range(40):
+        f0, f1 = func(x0) - target, func(x1) - target
+        if abs(f1) < 1e-6 or abs(x1 - x0) < 1e-6:
+            return x1
+        x0, x1 = x1, x1 - f1 * (x1 - x0) / (f1 - f0)
+    return x1
 
 
-def pressureRatio(a1, a4, gamma1, gamma4, P2_P1):
-    p = P2_P1 * (
-        1
-        - ((gamma4 - 1) * (a1 / a4) * (P2_P1 - 1))
-        / math.sqrt(2 * gamma1 * (2 * gamma1 + (gamma1 + 1) * (P2_P1 - 1)))
-    ) ** ((-2 * gamma4) / (gamma4 - 1))
-    return p
+def ask(prompt, default):
+    """Helper for numeric input with a default on [ENTER]."""
+    val = input("%s [%s]: " % (prompt, default))
+    return float(val) if val else float(default)
 
 
-a1 = math.sqrt(gammaDriven * Rdriven * Tdriven)
-a4 = math.sqrt(gammaDriver * Rdriver * Tdriver)
+def p4_p1_from_p2_p1(a1, a4, g1, g4, p2_p1):
+    """Shock tube relation: diaphragm ratio P4/P1 from shock ratio P2/P1."""
+    denom = math.sqrt(2 * g1 * (2 * g1 + (g1 + 1) * (p2_p1 - 1)))
+    factor = 1 - ((g4 - 1) * (a1 / a4) * (p2_p1 - 1)) / denom
+    if factor <= 0:
+        return 1e9
+    return p2_p1 * (factor ** ((-2 * g4) / (g4 - 1)))
 
-if selection == 1:
-    P2_P1 = knownValue
-    P4_P1 = pressureRatio(a1, a4, gammaDriven, gammaDriver, P2_P1)
-elif selection == 2:
-    P4_P1 = knownValue
-    P2_P1 = 0
-    guess = 2
-    while abs(guess - P2_P1) > 1e-8:
-        P2_P1 = guess
-        f = pressureRatio(a1, a4, gammaDriven, gammaDriver, P2_P1) - P4_P1
-        # Approximate derivative using 4th order central difference
-        h = 1e-3  # This should be the step size with the lowest error
-        fprime = (
-            pressureRatio(a1, a4, gammaDriven, gammaDriver, (P2_P1 - 2 * h))
-            - 8 * pressureRatio(a1, a4, gammaDriven, gammaDriver, (P2_P1 - h))
-            + 8 * pressureRatio(a1, a4, gammaDriven, gammaDriver, (P2_P1 + h))
-            - pressureRatio(a1, a4, gammaDriven, gammaDriver, (P2_P1 + 2 * h))
-        ) / (12 * h)
-        guess = P2_P1 - (f / fprime)
+
+# --- User Interface ---
+print("--- SHOCK TUBE ---")
+print("1: P2/P1 (Shock ratio)\n2: P4/P1 (Diaphragm ratio)")
+opt = int(input("Known [1-2]: "))
+val = float(input("Value: "))
+
+print("\n-- Driven Gas (1) --")
+g1 = ask("gamma1", 1.4)
+T1 = ask("T1 (K)", 300)
+R1 = ask("R1", 287)
+
+print("-- Driver Gas (4) --")
+g4 = ask("gamma4", 1.4)
+T4 = ask("T4 (K)", 300)
+R4 = ask("R4", 287)
+
+# Speed of sound in driver (4) and driven (1) sections
+a1 = math.sqrt(g1 * R1 * T1)
+a4 = math.sqrt(g4 * R4 * T4)
+
+# Resolve P2/P1 and P4/P1
+if opt == 1:
+    p2_p1 = val
+    p4_p1 = p4_p1_from_p2_p1(a1, a4, g1, g4, p2_p1)
+elif opt == 2:
+    p4_p1 = val
+    p2_p1 = solve(lambda p: p4_p1_from_p2_p1(a1, a4, g1, g4, p), p4_p1, 1.5, 4.0)
 else:
     print("error")
     sys.exit()
 
-Ms = math.sqrt((P2_P1 - 1) * (gammaDriven + 1) / (2 * gammaDriven) + 1)
+# Incident shock Mach number Ms
+ms = math.sqrt((p2_p1 - 1) * (g1 + 1) / (2 * g1) + 1)
 
-# Reflected Shock
-a = (Ms / (Ms**2 - 1)) * math.sqrt(
-    1
-    + (
-        (2 * (gammaDriven - 1) / (gammaDriven + 1) ** 2)
-        * (Ms**2 - 1)
-        * (gammaDriven + (1 / Ms**2))
-    )
+# Reflected Shock Mach number Mr and pressure ratio P5/P2
+term = math.sqrt(
+    1 + (2 * (g1 - 1) / (g1 + 1) ** 2) * (ms**2 - 1) * (g1 + 1 / ms**2)
 )
-b = -1
-c = -a
-Mr = (-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a)
-P5_P2 = 1 + ((2 * gammaDriven) / (gammaDriven + 1)) * (Mr**2 - 1)
+a_quad = (ms / (ms**2 - 1)) * term
+mr = (1 + math.sqrt(1 + 4 * a_quad**2)) / (2 * a_quad)
+p5_p2 = 1 + ((2 * g1) / (g1 + 1)) * (mr**2 - 1)
 
-# Output values
-print("P4/P1 = ", P4_P1)
-print("P2_P1 = ", P2_P1)
-print("Ms = ", Ms)
-print("Mr = ", Mr)
-print("P5/P2 = ", P5_P2)
+# Display results formatted for TI-84 screen (26x10 chars)
+print("\nP4/P1: %.4f" % p4_p1)
+print("P2/P1: %.4f" % p2_p1)
+print("Ms   : %.4f" % ms)
+print("Mr   : %.4f" % mr)
+print("P5/P2: %.4f" % p5_p2)
