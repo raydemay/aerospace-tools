@@ -16,6 +16,7 @@ import argparse
 import math
 import os
 import sys
+from typing import Any
 
 # Astronomical Unit in kilometers (IAU standard)
 KM_PER_AU = 149597870.7
@@ -195,7 +196,7 @@ def plot_matplotlib(body_name, traj_km, earth_km, ets, unit="AU", save_png=None)
     earth = earth_km / scale
 
     fig = plt.figure(figsize=(10, 8), dpi=100)
-    ax = fig.add_subplot(111, projection="3d")
+    ax: Any = fig.add_subplot(111, projection="3d")
     ax.set_facecolor("#0b0e14")
     fig.patch.set_facecolor("#0b0e14")
 
