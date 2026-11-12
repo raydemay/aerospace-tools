@@ -150,3 +150,7 @@ Temporary Items
 .apdisk
 .AppleDouble
 .LSOverride
+
+# Plotly and Matplotlib Images from plot_spk_trajectory.py
+trajectory_3d.png
+trajectory_3d.html
