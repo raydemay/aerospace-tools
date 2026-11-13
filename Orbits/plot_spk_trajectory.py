@@ -261,8 +261,9 @@ def plot_matplotlib(body_name, traj_km, earth_km, ets, unit="AU", save_png=None)
 
 def plot_plotly(body_name, traj_km, earth_km, ets, unit="AU", save_html="trajectory_3d.html"):
     """
-    Creates an interactive 3D trajectory visualization using Plotly.
+    Creates an interactive 3D trajectory visualization with time scrubbing using Plotly.
     """
+    import numpy as np
     import plotly.graph_objects as go
 
     scale = KM_PER_AU if unit.upper() == "AU" else 1.0
@@ -278,9 +279,13 @@ def plot_plotly(body_name, traj_km, earth_km, ets, unit="AU", save_html="traject
         for d, (x, y, z) in zip(hover_dates, traj)
     ]
 
+    num_frames = min(len(ets), 200)
+    frame_indices = np.unique(np.linspace(0, len(ets) - 1, num_frames, dtype=int))
+    init_idx = int(frame_indices[-1])
+
     fig = go.Figure()
 
-    # 1. Sun
+    # 0. Sun (static)
     fig.add_trace(go.Scatter3d(
         x=[0], y=[0], z=[0],
         mode="markers",
@@ -290,7 +295,7 @@ def plot_plotly(body_name, traj_km, earth_km, ets, unit="AU", save_html="traject
         text=["<b>Sun</b><br>Heliocentric Origin [0, 0, 0]"],
     ))
 
-    # 2. Earth Orbit
+    # 1. Earth Orbit (static)
     fig.add_trace(go.Scatter3d(
         x=earth[:, 0], y=earth[:, 1], z=earth[:, 2],
         mode="lines",
@@ -299,17 +304,18 @@ def plot_plotly(body_name, traj_km, earth_km, ets, unit="AU", save_html="traject
         hoverinfo="name",
     ))
 
-    # 3. Spacecraft Trajectory
+    # 2. Full Trajectory Reference Path (static)
     fig.add_trace(go.Scatter3d(
         x=traj[:, 0], y=traj[:, 1], z=traj[:, 2],
         mode="lines",
-        line=dict(color="#ff3d00", width=5),
-        name=f"{body_name} Trajectory",
+        line=dict(color="#ff3d00", width=2),
+        opacity=0.35,
+        name=f"{body_name} Full Path",
         hoverinfo="text",
         text=hover_traj,
     ))
 
-    # 4. Start Point
+    # 3. Start Point (static)
     fig.add_trace(go.Scatter3d(
         x=[traj[0, 0]], y=[traj[0, 1]], z=[traj[0, 2]],
         mode="markers",
@@ -319,7 +325,7 @@ def plot_plotly(body_name, traj_km, earth_km, ets, unit="AU", save_html="traject
         text=[f"Start: {hover_dates[0]}"],
     ))
 
-    # 5. End Point
+    # 4. End Point (static)
     fig.add_trace(go.Scatter3d(
         x=[traj[-1, 0]], y=[traj[-1, 1]], z=[traj[-1, 2]],
         mode="markers",
@@ -329,21 +335,154 @@ def plot_plotly(body_name, traj_km, earth_km, ets, unit="AU", save_html="traject
         text=[f"End: {hover_dates[-1]}"],
     ))
 
+    # 5. Traversed Spacecraft Trajectory (dynamic)
+    fig.add_trace(go.Scatter3d(
+        x=traj[:init_idx + 1, 0], y=traj[:init_idx + 1, 1], z=traj[:init_idx + 1, 2],
+        mode="lines",
+        line=dict(color="#ff3d00", width=5),
+        name=f"{body_name} Trajectory",
+        hoverinfo="skip",
+    ))
+
+    # 6. Current Time Position Marker (dynamic)
+    fig.add_trace(go.Scatter3d(
+        x=[traj[init_idx, 0]], y=[traj[init_idx, 1]], z=[traj[init_idx, 2]],
+        mode="markers",
+        marker=dict(size=9, color="#ffea00", symbol="circle", line=dict(color="#ffffff", width=2)),
+        name=f"{body_name} Current",
+        hoverinfo="text",
+        text=[hover_traj[init_idx]],
+    ))
+
+    # Animation frames and slider steps targeting traces 5 and 6
+    frames = []
+    slider_steps = []
+    for step_i, idx in enumerate(frame_indices):
+        frame_name = f"frame_{step_i}"
+        frames.append(
+            go.Frame(
+                name=frame_name,
+                traces=[5, 6],
+                data=[
+                    go.Scatter3d(
+                        x=traj[:idx + 1, 0],
+                        y=traj[:idx + 1, 1],
+                        z=traj[:idx + 1, 2],
+                    ),
+                    go.Scatter3d(
+                        x=[traj[idx, 0]],
+                        y=[traj[idx, 1]],
+                        z=[traj[idx, 2]],
+                        text=[hover_traj[idx]],
+                    ),
+                ],
+            )
+        )
+        slider_steps.append(
+            dict(
+                method="animate",
+                label=hover_dates[idx],
+                args=[
+                    [frame_name],
+                    dict(
+                        mode="immediate",
+                        frame=dict(duration=0, redraw=True),
+                        transition=dict(duration=0),
+                    ),
+                ],
+            )
+        )
+
+    fig.frames = frames
+
+    # Pin 3D axis bounds so the bounding box stays fixed while scrubbing
+    all_pts = np.vstack([traj, earth, np.zeros((1, 3))])
+
+    def _padded_range(vals):
+        vmin = float(vals.min())
+        vmax = float(vals.max())
+        span = vmax - vmin
+        pad = span * 0.05 if span > 0 else 0.1
+        return [vmin - pad, vmax + pad]
+
+    xaxis_range = _padded_range(all_pts[:, 0])
+    yaxis_range = _padded_range(all_pts[:, 1])
+    zaxis_range = _padded_range(all_pts[:, 2])
+
     # Layout styling
     start_date = hover_dates[0]
     end_date = hover_dates[-1]
     fig.update_layout(
         title=f"<b>{body_name}</b> 3D Heliocentric Trajectory (ECLIPJ2000)<br><sup>{start_date} to {end_date}</sup>",
         template="plotly_dark",
-        margin=dict(l=0, r=0, b=0, t=60),
+        margin=dict(l=0, r=0, b=90, t=60),
         legend=dict(x=0.02, y=0.98, bgcolor="rgba(20, 24, 33, 0.75)"),
         scene=dict(
-            xaxis_title=f"X ({u_label})",
-            yaxis_title=f"Y ({u_label})",
-            zaxis_title=f"Z ({u_label})",
+            xaxis=dict(title=f"X ({u_label})", range=xaxis_range),
+            yaxis=dict(title=f"Y ({u_label})", range=yaxis_range),
+            zaxis=dict(title=f"Z ({u_label})", range=zaxis_range),
             aspectmode="data",
             camera=dict(eye=dict(x=1.3, y=1.3, z=0.8)),
         ),
+        updatemenus=[
+            dict(
+                type="buttons",
+                showactive=False,
+                x=0.02,
+                y=0.0,
+                xanchor="left",
+                yanchor="top",
+                direction="left",
+                pad=dict(r=10, t=20),
+                bgcolor="rgba(20, 24, 33, 0.85)",
+                bordercolor="#37474f",
+                font=dict(color="#e0e0e0"),
+                buttons=[
+                    dict(
+                        label="▶ Play",
+                        method="animate",
+                        args=[
+                            None,
+                            dict(
+                                frame=dict(duration=40, redraw=True),
+                                fromcurrent=True,
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                    ),
+                    dict(
+                        label="❚❚ Pause",
+                        method="animate",
+                        args=[
+                            [None],
+                            dict(
+                                mode="immediate",
+                                frame=dict(duration=0, redraw=False),
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                    ),
+                ],
+            )
+        ],
+        sliders=[
+            dict(
+                active=len(slider_steps) - 1,
+                x=0.14,
+                y=0.0,
+                len=0.84,
+                xanchor="left",
+                yanchor="top",
+                pad=dict(b=10, t=20),
+                currentvalue=dict(
+                    prefix="Time: ",
+                    visible=True,
+                    xanchor="left",
+                    font=dict(size=13, color="#e0e0e0"),
+                ),
+                steps=slider_steps,
+            )
+        ],
     )
 
     if save_html:
